@@ -1,0 +1,86 @@
+#!/usr/bin/env perl
+# by by William Hofferbert
+#
+use 5.010;
+use LWP::Simple;
+use Getopt::Long;
+
+my $wiki = "https://en.wikipedia.org/wiki";
+
+sub usage {
+  my $usage = <<"  END_USAGE";
+
+  This program takes input in the form of a wikipedia web page and that page,
+  then follows the first link of every paragraph of every next page until the
+  series of pages completes a loop.
+
+    Basic Usage: $0 "Page Name"
+
+  Options:
+
+    -help       Print this help.
+
+  Examples:
+
+    # show the available colors
+    $0 "Bleu cheese"
+
+  END_USAGE
+
+  say "$usage";
+  exit(0);
+}
+
+sub handle_args {
+  if ( Getopt::Long::GetOptions(
+    'help' => \&usage,
+     ) )   {
+  }
+}
+
+my $orig_query = $query = $ARGV[0];
+&usage if ($query =~ /^$/);
+my @pages;
+$query =~ s/ /_/g;
+
+sub page_parse {
+  # grab html of the query and return the next link
+  if ( (grep /$query/, @pages) == 1 ) {
+    say "Looped on '$query'";
+    say "$#pages pages in the line from '$orig_query'";
+    foreach $item (@pages) {
+      $archeck = shift(@pages);
+      if ($archeck eq $query) {
+        exit;
+      }
+    }
+    say "$#pages pages in the '$query' loop.";
+    exit;
+  }
+  push(@pages, $query);
+  $page_ref = get("$wiki/$query");
+  (@paragraph_chunks) = $page_ref =~ m/<p>.*a href=\"\/wiki[^\"]+/g;
+  $stripped_parens = $paragraph_chunks[0];
+  $stripped_parens =~ s/\([^ )]* [^ )]*\)//g;
+  # hrefs in parens
+  $stripped_parens =~ s/\([^)]*a href[^)]*\)//g;
+  # language spans
+  $stripped_parens =~ s/\(.*?<span.*<span.*?\)//g;
+  # array chunks
+  $stripped_parens =~ s/\([^)]*?(<[^>]*>[^<]*)+\)//g;
+  (@hrefs) = $stripped_parens =~ m/(?<=a href=\"\/wiki\/)[^\"]+/g;
+  $query = $hrefs[0];
+  $fancy_q = $query;
+  $fancy_q =~ s/_/ /g;
+  say "Next link was $fancy_q";
+  &page_parse;
+}
+
+sub main {
+  $fancy_q = $query;
+  $fancy_q =~ s/_/ /g;
+  say "Checking Wikipedia for $fancy_q ...";
+  &page_parse;
+}
+
+&main;
